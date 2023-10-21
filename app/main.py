@@ -60,7 +60,7 @@ if __name__ == """__main__""":
             message_placeholder = st.empty()
             full_response = ""
 
-            with st.spinner("Generating response..."):
+            with st.spinner("Thinking..."):
                 # TODO - manage conversation history length
                 llm_output = agent_executor.invoke(
                     {
