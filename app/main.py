@@ -2,17 +2,12 @@ import io
 import re
 import sys
 import time
+from typing import Any
 
 import streamlit as st
 
 from app.agent import init_agent_executor
-from app.tools import (
-    CreateCalendarEventTool,
-    HRPolicyEmailTool,
-    RespondTool,
-    SlackInviteTool,
-    WelcomeEmailTool,
-)
+from app.tools import get_all_tools
 
 
 def no_ansi_string(ansi_string: str) -> str:
@@ -29,7 +24,7 @@ class CaptureStdout:
         sys.stdout = self.new_stdout
         return self
 
-    def __exit__(self, *args) -> None:
+    def __exit__(self, *args: Any) -> None:
         self.value = self.new_stdout.getvalue()
         self.new_stdout.close()
         sys.stdout = self.old_stdout
@@ -68,14 +63,7 @@ if __name__ == """__main__""":
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        tools = [
-            RespondTool(),
-            WelcomeEmailTool(),
-            HRPolicyEmailTool(),
-            SlackInviteTool(),
-            CreateCalendarEventTool(),
-        ]
-
+        tools = get_all_tools()
         agent_executor = init_agent_executor(tools, verbose=True)
 
         with st.chat_message("assistant"):

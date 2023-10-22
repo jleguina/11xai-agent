@@ -20,7 +20,7 @@ class CustomJSONOutputParser(AgentOutputParser):
                 logger.warning("Got multiple tool responses: %s", response)
                 response = response[0]
 
-            if response["tool"] == RespondTool().name:
+            if response["tool"] == RespondTool().name:  # type: ignore
                 return AgentFinish({"output": response["tool_input"]}, text)
             else:
                 return AgentAction(

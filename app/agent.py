@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from langchain.agents import AgentExecutor
 from langchain.agents.format_scratchpad import format_log_to_messages
@@ -9,13 +10,7 @@ from langchain.tools import BaseTool
 
 from app.config import settings
 from app.output_parser import CustomJSONOutputParser
-from app.tools import (
-    CreateCalendarEventTool,
-    HRPolicyEmailTool,
-    RespondTool,
-    SlackInviteTool,
-    WelcomeEmailTool,
-)
+from app.tools import get_all_tools
 
 TEMPLATE_TOOL_RESPONSE = """TOOL RESPONSE:
 ---------------------
@@ -27,7 +22,7 @@ USER'S INPUT
 Okay, so what is the response to my last comment? If using information obtained from the tools you must mention it explicitly without mentioning the tool names - I have forgotten all TOOL RESPONSES! Remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else - even if you just want to respond to the user. Do NOT respond with anything except a JSON snippet no matter what!"""
 
 
-def init_agent_executor(tools: list[BaseTool], verbose=False) -> AgentExecutor:
+def init_agent_executor(tools: list[BaseTool], verbose: bool = False) -> AgentExecutor:
     prompt = load_prompt(Path("./app/prompts/master.yaml").resolve())
     tool_strings = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
     tool_names = ", ".join([tool.name for tool in tools])
@@ -41,7 +36,7 @@ def init_agent_executor(tools: list[BaseTool], verbose=False) -> AgentExecutor:
     llm_with_stop = llm.bind(stop=["\nObservation"])
 
     # Using LCEL
-    agent = (
+    agent: Any = (
         {
             "input": lambda x: x["input"],
             "agent_scratchpad": lambda x: format_log_to_messages(
@@ -61,14 +56,7 @@ def init_agent_executor(tools: list[BaseTool], verbose=False) -> AgentExecutor:
 
 if __name__ == "__main__":
     chat_history = []
-    tools = [
-        RespondTool(),
-        WelcomeEmailTool(),
-        HRPolicyEmailTool(),
-        SlackInviteTool(),
-        CreateCalendarEventTool(),
-    ]
-
+    tools = get_all_tools()
     agent_executor = init_agent_executor(tools, verbose=True)
 
     init_message = "Hi, I am Maria, your personal HR assistant. To get started, can you please tell me your name and email address? Thanks!"

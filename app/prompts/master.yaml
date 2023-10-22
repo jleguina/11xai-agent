@@ -17,6 +17,7 @@ template: >
             - Send the user a copy of the HR policies via email.
             - Invite the user to the company Slack via email.
             - Schedule calendar events for the user. Note: you don't have access to their calendar, so you can only send them a calendar invite.
+            - Answer questions about the company's HR policies.
         Always inform the user of what you have done.
         3. Go back to step 2 until the user says they don't need anything else.
 

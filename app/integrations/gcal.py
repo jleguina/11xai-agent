@@ -73,7 +73,7 @@ def schedule_event(
         .execute()
     )
 
-    return event["id"]
+    return event["id"]  # type: ignore
 
 
 def delete_event(service: Any, event_id: str) -> None:
