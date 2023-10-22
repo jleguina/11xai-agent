@@ -6,7 +6,13 @@ import time
 import streamlit as st
 
 from app.agent import init_agent_executor
-from app.tools import HRPolicyEmailTool, RespondTool, SlackInviteTool, WelcomeEmailTool
+from app.tools import (
+    CreateCalendarEventTool,
+    HRPolicyEmailTool,
+    RespondTool,
+    SlackInviteTool,
+    WelcomeEmailTool,
+)
 
 
 def no_ansi_string(ansi_string: str) -> str:
@@ -67,6 +73,7 @@ if __name__ == """__main__""":
             WelcomeEmailTool(),
             HRPolicyEmailTool(),
             SlackInviteTool(),
+            CreateCalendarEventTool(),
         ]
 
         agent_executor = init_agent_executor(tools, verbose=True)

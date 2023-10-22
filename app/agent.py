@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 
 from langchain.agents import AgentExecutor
@@ -8,7 +9,13 @@ from langchain.tools import BaseTool
 
 from app.config import settings
 from app.output_parser import CustomJSONOutputParser
-from app.tools import HRPolicyEmailTool, RespondTool, SlackInviteTool, WelcomeEmailTool
+from app.tools import (
+    CreateCalendarEventTool,
+    HRPolicyEmailTool,
+    RespondTool,
+    SlackInviteTool,
+    WelcomeEmailTool,
+)
 
 TEMPLATE_TOOL_RESPONSE = """TOOL RESPONSE:
 ---------------------
@@ -24,7 +31,11 @@ def init_agent_executor(tools: list[BaseTool], verbose=False) -> AgentExecutor:
     prompt = load_prompt(Path("./app/prompts/master.yaml").resolve())
     tool_strings = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
     tool_names = ", ".join([tool.name for tool in tools])
-    prompt = prompt.partial(tool_names=tool_names, tool_strings=tool_strings)
+    prompt = prompt.partial(
+        date=datetime.now().isoformat()[:10],
+        tool_names=tool_names,
+        tool_strings=tool_strings,
+    )
 
     llm = ChatOpenAI(temperature=0.1, model=settings.OPENAI_MODEL)
     llm_with_stop = llm.bind(stop=["\nObservation"])
@@ -55,6 +66,7 @@ if __name__ == "__main__":
         WelcomeEmailTool(),
         HRPolicyEmailTool(),
         SlackInviteTool(),
+        CreateCalendarEventTool(),
     ]
 
     agent_executor = init_agent_executor(tools, verbose=True)

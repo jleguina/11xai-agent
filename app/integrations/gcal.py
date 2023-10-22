@@ -57,13 +57,15 @@ def schedule_event(
             "timeZone": timezone,
         },
         "attendees": [{"email": attendee} for attendee in attendees],
-        "conferenceData": {
+    }
+
+    if attendees:
+        event["conferenceData"] = {
             "createRequest": {
                 "conferenceSolutionKey": {"type": "hangoutsMeet"},
                 "requestId": "randomString",
             }
-        },
-    }
+        }
 
     event = (
         service.events()
