@@ -25,9 +25,13 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 from app.config import settings
+from app.integrations.google_auth import GoogleService, get_google_service
 
 
-def gmail_authenticate() -> Any:
+def gmail_authenticate(
+    client_config: dict[str, dict[str, str | list[str]]],
+    scopes: list[str],
+) -> Any:
     creds = None
     # the file token.pickle stores the user's access and refresh tokens, and is
     # created automatically when the authorization flow completes for the first time
@@ -40,9 +44,7 @@ def gmail_authenticate() -> Any:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_config(
-                settings.GOOGLE_CLIENT_CONFIG, settings.GMAIL_SCOPES
-            )
+            flow = InstalledAppFlow.from_client_config(client_config, scopes)
             creds = flow.run_local_server(port=0)
         # save the credentials for the next run
         with open("token.pickle", "wb") as token:
@@ -127,7 +129,11 @@ def send_message(
 
 
 if __name__ == "__main__":
-    service = gmail_authenticate()
+    service = get_google_service(
+        service_name=GoogleService.GMAIL,
+        client_config=settings.GOOGLE_CLIENT_CONFIG,
+        scopes=settings.GOOGLE_SCOPES,
+    )
     attachment_path = Path("./assets/HR_policies.pdf").resolve().as_posix()
     send_message(
         service=service,

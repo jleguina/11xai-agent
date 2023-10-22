@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import openai
 from dotenv import load_dotenv
@@ -14,8 +14,13 @@ class _Settings:
     DEBUG: bool = False
 
     # Google API
-    SYSTEM_EMAIL = "javierleguina98@gmail.com"
-    GMAIL_SCOPES = ["https://mail.google.com/"]
+    SYSTEM_EMAIL: str = "javierleguina98@gmail.com"
+    GOOGLE_SCOPES: list[str] = field(
+        default_factory=lambda: [
+            "https://mail.google.com/",
+            "https://www.googleapis.com/auth/calendar",
+        ]
+    )
 
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
