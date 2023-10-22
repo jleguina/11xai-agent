@@ -13,6 +13,9 @@ class _Settings:
     OPENAI_MODEL: str = "gpt-3.5-turbo"
     DEBUG: bool = False
 
+    # Slack invite URL
+    SLACK_INVITE_URL: str = os.getenv("SLACK_INVITE_URL", "")
+
     # Google API
     SYSTEM_EMAIL: str = "javierleguina98@gmail.com"
     GOOGLE_SCOPES: list[str] = field(

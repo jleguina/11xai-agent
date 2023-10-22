@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from langchain.agents import AgentExecutor, Tool, ZeroShotAgent
+from langchain.agents import AgentExecutor, ZeroShotAgent
 from langchain.chains import LLMChain
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import load_prompt

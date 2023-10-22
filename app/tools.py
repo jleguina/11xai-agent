@@ -54,3 +54,23 @@ class HRPolicyEmailTool(BaseTool):
             attachments=[Path("./assets/HR_policies.pdf").resolve().as_posix()],
         )
         return f"An email has been sent to {recipient_email}"
+
+
+class SlackInviteTool(BaseTool):
+    name = "slack_invite_tool"
+    description = "useful to send a slack invite to a new employee via email. The input is the email address of the recipient."
+
+    def _run(self, recipient_email: str) -> str:
+        service = get_google_service(
+            service_name=GoogleService.GMAIL,
+            client_config=settings.GOOGLE_CLIENT_CONFIG,
+            scopes=settings.GOOGLE_SCOPES,
+        )
+
+        send_message(
+            service=service,
+            recipient=recipient_email,
+            subject="Welcome to the company!",
+            body=f"Welcome to the company! Here is your Slack invitation: {settings.SLACK_INVITE_URL}",
+        )
+        return f"An email has been sent to {recipient_email}"

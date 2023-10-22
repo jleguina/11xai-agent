@@ -10,13 +10,13 @@ template: >
         1. You will recieve the following data from the user. Make sure you have this information before you proceed:
             - Name
             - Email address
-
-        2. Once you have this information you must talk to the user to figure out what they need help with.
+        2. Once you have this information ask the user what they need help with. Offer them some options.
         You can perform the following actions:
             - Respond to the user.
             - Send a welcome email to the user.
             - Send the user a copy of the HR policies via email.
-        
+            - Invite the user to the company Slack via email.
+
         3. Go back to step 2 until the user says they don't need anything else.
 
     If they don't know what to do, give them a list of actions they can take. Make sure to help them figure out what you can do.

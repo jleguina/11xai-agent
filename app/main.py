@@ -1,28 +1,34 @@
 import io
+import re
 import sys
 import time
 
 import streamlit as st
 
 from app.agent import init_agent_executor
-from app.tools import HRPolicyEmailTool, RespondTool, WelcomeEmailTool
+from app.tools import HRPolicyEmailTool, RespondTool, SlackInviteTool, WelcomeEmailTool
+
+
+def no_ansi_string(ansi_string: str) -> str:
+    ansi_escape = re.compile(r"\x1b[^m]*m")
+    return ansi_escape.sub("", ansi_string)
 
 
 class CaptureStdout:
-    def __init__(self):
+    def __init__(self) -> None:
         self.new_stdout = io.StringIO()
         self.old_stdout = sys.stdout
 
-    def __enter__(self):
+    def __enter__(self) -> "CaptureStdout":
         sys.stdout = self.new_stdout
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args) -> None:
         self.value = self.new_stdout.getvalue()
         self.new_stdout.close()
         sys.stdout = self.old_stdout
 
-    def getvalue(self):
+    def getvalue(self) -> str:
         return self.value.strip()
 
 
@@ -38,6 +44,7 @@ if __name__ == """__main__""":
             {
                 "role": "assistant",
                 "content": "Hi, I am Maria, your personal HR assistant. To get started, can you please tell me your name and email address? Thanks!",
+                "log": [],
             }
         ]
         st.session_state.debug_logs = []
@@ -45,13 +52,22 @@ if __name__ == """__main__""":
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if message["log"] and debug:
+                st.write(message["log"])
 
     if user_input := st.chat_input("What's up?"):
-        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.messages.append(
+            {"role": "user", "content": user_input, "log": ""}
+        )
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        tools = [RespondTool(), WelcomeEmailTool(), HRPolicyEmailTool()]
+        tools = [
+            RespondTool(),
+            WelcomeEmailTool(),
+            HRPolicyEmailTool(),
+            SlackInviteTool(),
+        ]
 
         agent_executor = init_agent_executor(tools, verbose=True)
 
@@ -70,14 +86,16 @@ if __name__ == """__main__""":
                         }
                     )["output"]
 
-            st.session_state.debug_logs.append(c.getvalue())
-
             for response in llm_output:
                 full_response += response
                 message_placeholder.markdown(full_response + "▌")
                 time.sleep(0.02)
 
+            logs = no_ansi_string(c.getvalue()).split("\n")
+            logs = list(filter(None, logs))  # Remove blank lines
+            st.write(logs)
+
             message_placeholder.markdown(full_response)
         st.session_state.messages.append(
-            {"role": "assistant", "content": full_response}
+            {"role": "assistant", "content": full_response, "log": logs}
         )
