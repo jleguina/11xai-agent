@@ -53,7 +53,7 @@ class HRPolicyEmailTool(BaseTool):
             body="Please find attached the HR policies of the company",
             attachments=[Path("./assets/HR_policies.pdf").resolve().as_posix()],
         )
-        return f"An email has been sent to {recipient_email}"
+        return f"An email with the HR policies has been sent to {recipient_email}"
 
 
 class SlackInviteTool(BaseTool):

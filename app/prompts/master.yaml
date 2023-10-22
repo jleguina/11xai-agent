@@ -33,14 +33,14 @@ template: >
 
     {chat_history}
 
-    When responding, ALWAYS output a response in a JSON in the following format:
+    You must ALWAYS output a response in a JSON in the following format:
     {{
         "thought": string, # Always think about what you are going to do.
         "tool": string, # The name of the tool to use. Must be one of {tool_names}
         "tool_input": string # The input to the tool
     }}
 
-    Here is the user's input (remember to respond with a JSON):
+    Here is the user's input (remember to respond with a valid JSON, nothing else):
 
     "{input}"
 
