@@ -32,12 +32,12 @@ class WelcomeEmailTool(BaseTool):
             subject="Welcome to the company!",
             body="Welcome to the company! We are very happy to have you here.",
         )
-        return f"An email has been sent to {recipient_email}"
+        return f"\nA welcome email has been sent to {recipient_email}\n"
 
 
 class HRPolicyEmailTool(BaseTool):
     name = "HR_policy_email_tool"
-    description = "useful to send an email with the HR policies to the new employee. The input is the email address of the recipient."
+    description = "useful to send an email with the HR policies to the new employee. The only input is the email address of the recipient."
 
     def _run(self, recipient_email: str) -> str:
         service = get_google_service(
@@ -53,12 +53,12 @@ class HRPolicyEmailTool(BaseTool):
             body="Please find attached the HR policies of the company",
             attachments=[Path("./assets/HR_policies.pdf").resolve().as_posix()],
         )
-        return f"An email with the HR policies has been sent to {recipient_email}"
+        return f"\nAn email with the HR policies has been sent to {recipient_email}\n"
 
 
 class SlackInviteTool(BaseTool):
     name = "slack_invite_tool"
-    description = "useful to send a slack invite to a new employee via email. The input is the email address of the recipient."
+    description = "useful to send a slack invite to a new employee via email. The only input is the email address of the recipient."
 
     def _run(self, recipient_email: str) -> str:
         service = get_google_service(
@@ -70,7 +70,7 @@ class SlackInviteTool(BaseTool):
         send_message(
             service=service,
             recipient=recipient_email,
-            subject="Welcome to the company!",
-            body=f"Welcome to the company! Here is your Slack invitation: {settings.SLACK_INVITE_URL}",
+            subject="Slack invite",
+            body=f"Welcome to the company! \n\n Here is your Slack invitation: \n{settings.SLACK_INVITE_URL}",
         )
-        return f"An email has been sent to {recipient_email}"
+        return f"\nAn email with a Slack invite has been sent to {recipient_email}\n"
