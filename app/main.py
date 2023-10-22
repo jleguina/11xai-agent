@@ -1,49 +1,46 @@
+import io
+import sys
 import time
-from pathlib import Path
 
 import streamlit as st
-from langchain.agents import AgentExecutor, Tool, ZeroShotAgent
-from langchain.chains import LLMChain
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import load_prompt
 
-from app.config import settings
-from app.output_parser import CustomJSONOutputParser
+from app.agent import init_agent_executor
+from app.tools import HRPolicyEmailTool, RespondTool, WelcomeEmailTool
 
 
-def init_agent_executor() -> AgentExecutor:
-    tools = [
-        Tool(
-            name="final_answer",
-            func=lambda: "1",
-            description="used to give the final answer to the human. The input to this tool is a string with the answer",
-        ),
-    ]
+class CaptureStdout:
+    def __init__(self):
+        self.new_stdout = io.StringIO()
+        self.old_stdout = sys.stdout
 
-    prompt = load_prompt(Path("./app/prompts/master.yaml").resolve())
-    tool_strings = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
-    tool_names = ", ".join([tool.name for tool in tools])
-    prompt = prompt.partial(tool_names=tool_names, tool_strings=tool_strings)
+    def __enter__(self):
+        sys.stdout = self.new_stdout
+        return self
 
-    llm = ChatOpenAI(temperature=0, model=settings.OPENAI_MODEL)
-    llm_chain = LLMChain(llm=llm, prompt=prompt)
+    def __exit__(self, *args):
+        self.value = self.new_stdout.getvalue()
+        self.new_stdout.close()
+        sys.stdout = self.old_stdout
 
-    agent = ZeroShotAgent(
-        llm_chain=llm_chain,
-        allowed_tools=[tool.name for tool in tools],
-        output_parser=CustomJSONOutputParser(),
-    )
-
-    agent_executor = AgentExecutor.from_agent_and_tools(agent=agent, tools=tools)
-
-    return agent_executor
+    def getvalue(self):
+        return self.value.strip()
 
 
 if __name__ == """__main__""":
     st.title("ChatGPT-like clone")
 
+    #  Add a debug mode to show the logs
+    debug = st.checkbox("Debug mode")
+    st.session_state.debug = debug
+
     if "messages" not in st.session_state:
-        st.session_state.messages = []
+        st.session_state.messages = [
+            {
+                "role": "assistant",
+                "content": "Hi, I am Maria, your personal HR assistant. To get started, can you please tell me your name and email address? Thanks!",
+            }
+        ]
+        st.session_state.debug_logs = []
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -54,7 +51,9 @@ if __name__ == """__main__""":
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        agent_executor = init_agent_executor()
+        tools = [RespondTool(), WelcomeEmailTool(), HRPolicyEmailTool()]
+
+        agent_executor = init_agent_executor(tools, verbose=True)
 
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
@@ -62,12 +61,16 @@ if __name__ == """__main__""":
 
             with st.spinner("Thinking..."):
                 # TODO - manage conversation history length
-                llm_output = agent_executor.invoke(
-                    {
-                        "input": user_input,
-                        "chat_history": st.session_state.messages[:-1],
-                    }
-                )["output"]
+                # Capture the stdout
+                with CaptureStdout() as c:
+                    llm_output = agent_executor.invoke(
+                        {
+                            "input": user_input,
+                            "chat_history": st.session_state.messages[:-1],
+                        }
+                    )["output"]
+
+            st.session_state.debug_logs.append(c.getvalue())
 
             for response in llm_output:
                 full_response += response
