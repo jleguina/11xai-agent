@@ -14,6 +14,9 @@ openai = "^0.28.1"
 streamlit = "^1.27.2"
 python-dotenv = "^1.0.0"
 autoflake = "^2.2.1"
+google-api-python-client = "^2.104.0"
+google-auth-httplib2 = "^0.1.1"
+google-auth-oauthlib = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.10.0"
