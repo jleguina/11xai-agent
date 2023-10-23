@@ -1,6 +1,7 @@
 import datetime
 import json
 from pathlib import Path
+from typing import Callable
 
 from langchain.chat_models import ChatOpenAI
 from langchain.tools import BaseTool
@@ -34,6 +35,7 @@ class RespondTool(BaseTool):
 class WelcomeEmailTool(BaseTool):
     name = "welcome_email_tool"
     description = "useful to send a welcome email to a new employee. The input is the email address of the recipient."
+    callback: Callable | None = None
 
     def _run(self, recipient_email: str) -> str:
         service = get_google_service(
@@ -48,6 +50,10 @@ class WelcomeEmailTool(BaseTool):
             subject="Welcome to the company!",
             body="Welcome to the company! We are very happy to have you here.",
         )
+
+        if self.callback:
+            self.callback()
+
         return f"\nA welcome email has been sent to {recipient_email}\n"
 
 

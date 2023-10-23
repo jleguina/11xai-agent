@@ -15,7 +15,7 @@ template: >
             i. Send a welcome email to the user.
             ii. Send the user a copy of the HR policies via email.
             iii. Invite the user to the company Slack via email.
-            iv. Schedule an "Onboarding" calendar event for the user for the next day at 9am, with hasan@11x.ai, mohamed@11x.ai and the user as attendees.
+            iv. Schedule an "Onboarding" calendar event for the user for the next day at 9am.
             v. Add the user to the HR system
 
         3. Once this is done, tell the user what you have done. From here on, talk to the user to figure out what they need help with.

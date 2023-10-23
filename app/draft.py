@@ -1,3 +1,4 @@
+import multiprocessing
 import time
 from dataclasses import dataclass
 
@@ -6,7 +7,14 @@ from langchain.agents import AgentExecutor
 
 from app.agent.executor import init_agent_executor
 from app.agent.tools import RespondTool, WelcomeEmailTool
-from app.utils import CaptureStdout, no_ansi_string
+
+
+def llm_execution(shared_dict):
+    # Your LLM execution and callback goes here
+    # In this example, I'll just assign a value to the shared dictionary:
+    shared_dict["welcome_email_sent"] = True
+    time.sleep(15)
+    shared_dict["result"] = shared_dict["user_input"] + " - response from LLM"
 
 
 @dataclass
@@ -17,9 +25,11 @@ class RoleType:
 
 class MariaApp:
     def __init__(self) -> None:
-        self.onboarding_progress_container = None
         if "messages" not in st.session_state:
             self.init_session_state()
+
+        if "process" not in st.session_state:
+            self.init_subprocess_manager()
 
     def init_session_state(self) -> None:
         st.session_state.messages = [
@@ -39,40 +49,27 @@ class MariaApp:
 
         # Onboarding status
         st.session_state.welcome_email_sent = False
-        st.session_state.policies_email_sent = False
-        st.session_state.slack_invite_sent = False
-        st.session_state.calendar_event_created = False
-        st.session_state.enrolled_in_HR_system = False
+
+    def init_subprocess_manager(self) -> None:
+        manager = multiprocessing.Manager()
+        shared_dict = manager.dict()
+
+        shared_dict["welcome_email_sent"] = False
+        shared_dict["user_input"] = None
+        shared_dict["result"] = None
+
+        st.session_state.shared_dict = shared_dict
+        st.session_state.process = multiprocessing.Process(
+            target=llm_execution, args=(shared_dict,)
+        )
 
     def onboarding_status_widget(self) -> None:
-        self.onboarding_progress_container = st.container()
-        with self.onboarding_progress_container:
-            with st.expander("Onboarding Status", expanded=True):
-                st.checkbox("Welcome Email", value=False, disabled=True)
-
-                st.checkbox(
-                    "Send HR Policies",
-                    value=st.session_state.policies_email_sent,
-                    disabled=True,
-                )
-
-                st.checkbox(
-                    "Slack Invite",
-                    value=st.session_state.slack_invite_sent,
-                    disabled=True,
-                )
-
-                st.checkbox(
-                    "Schedule Onboarding Event",
-                    value=st.session_state.calendar_event_created,
-                    disabled=True,
-                )
-
-                st.checkbox(
-                    "Enroll in HR System",
-                    value=st.session_state.enrolled_in_HR_system,
-                    disabled=True,
-                )
+        with st.expander("Onboarding Status", expanded=True):
+            st.checkbox(
+                "Welcome Email",
+                value=st.session_state.shared_dict["welcome_email_sent"],
+                disabled=True,
+            )
 
     def sidebar(self) -> None:
         with st.sidebar:
@@ -94,7 +91,9 @@ class MariaApp:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            self.onboarding_status_widget()
+            self.onboarding_progress_container = st.container()
+            with self.onboarding_progress_container:
+                self.onboarding_status_widget()
 
             #  Add a debug mode to show the logs
             with st.expander("Debug mode"):
@@ -123,20 +122,7 @@ class MariaApp:
             st.session_state.welcome_email_sent = True
             st.rerun()
 
-        tools = [
-            RespondTool(),
-            WelcomeEmailTool(callback=set_welcome_email_status),
-            # HRPolicyEmailTool(),  # type: ignore
-            # SlackInviteTool(),  # type: ignore
-            # CreateCalendarEventTool(),  # type: ignore
-            # HRPolicyQATool(),  # type: ignore
-            # AddEmployeeToHRTool(),  # type: ignore
-            # ModifyEmployeeTool(),  # type: ignore
-            # ViewTimeOffRequestsTool(),  # type: ignore
-            # MakeTimeOffRequestTool(),  # type: ignore
-            # CancelTimeOffRequestTool(),  # type: ignore
-            # EstimateTimeOffBalanceTool(),  # type: ignore
-        ]
+        tools = [RespondTool(), WelcomeEmailTool(callback=set_welcome_email_status)]
         return init_agent_executor(tools, verbose=True)
 
     def handle_chat_input(self) -> None:
@@ -152,34 +138,11 @@ class MariaApp:
             with st.chat_message(RoleType.USER):
                 st.markdown(user_input)
 
-            agent_executor = self.init_agent()
+            # agent_executor = self.init_agent()
 
-            with st.chat_message(RoleType.ASSISTANT):
-                message_placeholder = st.empty()
-                full_response = ""
-
-                with st.spinner("Thinking..."):
-                    # TODO - manage conversation history length
-                    with CaptureStdout() as c:
-                        llm_output = agent_executor.invoke(
-                            {
-                                "input": user_input,
-                                "chat_history": st.session_state.messages[:-1],
-                            }
-                        )["output"]
-
-                for response in llm_output:
-                    full_response += response
-                    message_placeholder.markdown(full_response + "▌")
-                    time.sleep(0.02)
-
-                logs = no_ansi_string(c.getvalue()).split("\n")
-                logs = list(filter(None, logs))  # Remove blank lines
-                if st.session_state.debug:
-                    st.write(logs)
-
-                message_placeholder.markdown(full_response)
-            self.store_message(RoleType.ASSISTANT, full_response, logs)
+            st.session_state.shared_dict["user_input"] = user_input
+            st.session_state.process.start()
+            st.spinner("Thinking...")
 
     def run(self) -> None:
         st.title("Talk to me!")
@@ -187,6 +150,43 @@ class MariaApp:
         self.sidebar()
         self.render_chat()
         self.handle_chat_input()
+
+        if st.session_state.process.is_alive():
+            st.spinner("Thinking...")
+            st.rerun()
+
+        if (
+            "process" in st.session_state
+            and not st.session_state.process.is_alive()
+            and st.session_state.shared_dict["result"]
+        ):
+            st.session_state.process.join()
+            with st.chat_message(RoleType.ASSISTANT):
+                message_placeholder = st.empty()
+                full_response = ""
+
+                for response in st.session_state.shared_dict.pop("result"):
+                    full_response += response
+                    message_placeholder.markdown(full_response + "▌")
+                    time.sleep(0.02)
+
+                message_placeholder.markdown(full_response)
+            self.store_message(RoleType.ASSISTANT, full_response)
+
+            # Reset process manager
+            manager = multiprocessing.Manager()
+            shared_dict = manager.dict()
+
+            shared_dict["welcome_email_sent"] = st.session_state.shared_dict[
+                "welcome_email_sent"
+            ]
+            shared_dict["user_input"] = None
+            shared_dict["result"] = None
+
+            st.session_state.shared_dict = shared_dict
+            st.session_state.process = multiprocessing.Process(
+                target=llm_execution, args=(shared_dict,)
+            )
 
 
 if __name__ == "__main__":
