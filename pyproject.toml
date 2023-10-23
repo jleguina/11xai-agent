@@ -7,19 +7,19 @@ readme = "README.md"
 packages = [{ include = "app" }]
 
 [tool.poetry.dependencies]
-python = "^3.11, <3.12"
+python = ">=3.11,<3.12"
 
+faiss-cpu = "^1.7.4"
 google-api-python-client = "^2.104.0"
 google-auth-httplib2 = "^0.1.1"
 google-auth-oauthlib = "^1.1.0"
 langchain = "^0.0.319"
+numpy = "^1.26.1"
 openai = "^0.28.1"
 streamlit = "^1.27.2"
 pypdf = "^3.16.4"
 python-dotenv = "^1.0.0"
 tiktoken = "^0.5.1"
-faiss-cpu = "^1.7.4"
-llama-index = "^0.8.48"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -29,6 +29,7 @@ isort = "^5.12.0"
 mypy = "^1.6.1"
 pre-commit = "^3.5.0"
 pylint = "^3.0.1"
+types-requests = "^2.31.0.10"
 types-urllib3 = "^1.26.25.14"
 
 

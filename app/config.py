@@ -13,6 +13,10 @@ class _Settings:
     OPENAI_MODEL: str = "gpt-4"
     DEBUG: bool = False
 
+    # Bamboo HR API
+    BAMBOO_HR_API_KEY: str = os.getenv("BAMBOO_HR_API_KEY", "")
+    BAMBOO_HR_BASE_URL: str = "https://api.bamboohr.com/api/gateway.php/stackonetest/v1"
+
     # Slack invite URL
     SLACK_INVITE_URL: str = os.getenv("SLACK_INVITE_URL", "")
 
