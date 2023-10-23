@@ -1,5 +1,11 @@
 # 11xai-agent
 
+
+### Deployment
+
+Agent can be found at: https://hr-agent.streamlit.app/
+
+### Run locally
 To run the agent, do the following:
 
     1. Install the requirements: `poetry install`
