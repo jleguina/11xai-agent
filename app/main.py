@@ -5,7 +5,20 @@ import streamlit as st
 from langchain.agents import AgentExecutor
 
 from app.agent.executor import init_agent_executor
-from app.agent.tools import RespondTool, WelcomeEmailTool
+from app.agent.tools import (
+    AddEmployeeToHRTool,
+    CancelTimeOffRequestTool,
+    CreateCalendarEventTool,
+    EstimateTimeOffBalanceTool,
+    HRPolicyEmailTool,
+    HRPolicyQATool,
+    MakeTimeOffRequestTool,
+    ModifyEmployeeTool,
+    RespondTool,
+    SlackInviteTool,
+    ViewTimeOffRequestsTool,
+    WelcomeEmailTool,
+)
 from app.utils import CaptureStdout, no_ansi_string
 
 
@@ -17,7 +30,6 @@ class RoleType:
 
 class MariaApp:
     def __init__(self) -> None:
-        self.onboarding_progress_container = None
         if "messages" not in st.session_state:
             self.init_session_state()
 
@@ -30,7 +42,12 @@ class MariaApp:
                     - First Name
                     - Last Name
                     - Email Address
-                    """,
+                I will then:\n
+                    1. Send you a welcome email, the HR policies and a Slack invite.
+                    2. Schedule a calendar event for your onboarding.
+                    3. Enroll you in the HR system.
+                Thanks!        
+                """,
                 "log": [],
             }
         ]
@@ -45,34 +62,36 @@ class MariaApp:
         st.session_state.enrolled_in_HR_system = False
 
     def onboarding_status_widget(self) -> None:
-        self.onboarding_progress_container = st.container()
-        with self.onboarding_progress_container:
-            with st.expander("Onboarding Status", expanded=True):
-                st.checkbox("Welcome Email", value=False, disabled=True)
+        with st.expander("Onboarding Status", expanded=True):
+            st.checkbox(
+                "Welcome Email",
+                value=st.session_state.welcome_email_sent,
+                disabled=True,
+            )
 
-                st.checkbox(
-                    "Send HR Policies",
-                    value=st.session_state.policies_email_sent,
-                    disabled=True,
-                )
+            st.checkbox(
+                "Send HR Policies",
+                value=st.session_state.policies_email_sent,
+                disabled=True,
+            )
 
-                st.checkbox(
-                    "Slack Invite",
-                    value=st.session_state.slack_invite_sent,
-                    disabled=True,
-                )
+            st.checkbox(
+                "Slack Invite",
+                value=st.session_state.slack_invite_sent,
+                disabled=True,
+            )
 
-                st.checkbox(
-                    "Schedule Onboarding Event",
-                    value=st.session_state.calendar_event_created,
-                    disabled=True,
-                )
+            st.checkbox(
+                "Schedule Onboarding Event",
+                value=st.session_state.calendar_event_created,
+                disabled=True,
+            )
 
-                st.checkbox(
-                    "Enroll in HR System",
-                    value=st.session_state.enrolled_in_HR_system,
-                    disabled=True,
-                )
+            st.checkbox(
+                "Enroll in HR System",
+                value=st.session_state.enrolled_in_HR_system,
+                disabled=True,
+            )
 
     def sidebar(self) -> None:
         with st.sidebar:
@@ -110,7 +129,7 @@ class MariaApp:
     def render_chat(self) -> None:
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+                st.write(message["content"])
                 if message["log"] and st.session_state.debug:
                     st.write(message["log"])
 
@@ -121,21 +140,32 @@ class MariaApp:
         # Status callbacks
         def set_welcome_email_status():
             st.session_state.welcome_email_sent = True
-            st.rerun()
+
+        def set_policies_email_status():
+            st.session_state.policies_email_sent = True
+
+        def set_slack_invite_status():
+            st.session_state.slack_invite_sent = True
+
+        def set_calendar_event_status():
+            st.session_state.calendar_event_created = True
+
+        def set_enrolled_in_HR_system_status():
+            st.session_state.enrolled_in_HR_system = True
 
         tools = [
             RespondTool(),
             WelcomeEmailTool(callback=set_welcome_email_status),
-            # HRPolicyEmailTool(),  # type: ignore
-            # SlackInviteTool(),  # type: ignore
-            # CreateCalendarEventTool(),  # type: ignore
-            # HRPolicyQATool(),  # type: ignore
-            # AddEmployeeToHRTool(),  # type: ignore
-            # ModifyEmployeeTool(),  # type: ignore
-            # ViewTimeOffRequestsTool(),  # type: ignore
-            # MakeTimeOffRequestTool(),  # type: ignore
-            # CancelTimeOffRequestTool(),  # type: ignore
-            # EstimateTimeOffBalanceTool(),  # type: ignore
+            HRPolicyEmailTool(callback=set_policies_email_status),
+            SlackInviteTool(callback=set_slack_invite_status),
+            CreateCalendarEventTool(callback=set_calendar_event_status),
+            AddEmployeeToHRTool(callback=set_enrolled_in_HR_system_status),
+            HRPolicyQATool(),
+            ModifyEmployeeTool(),
+            ViewTimeOffRequestsTool(),
+            MakeTimeOffRequestTool(),
+            CancelTimeOffRequestTool(),
+            EstimateTimeOffBalanceTool(),
         ]
         return init_agent_executor(tools, verbose=True)
 
@@ -182,7 +212,7 @@ class MariaApp:
             self.store_message(RoleType.ASSISTANT, full_response, logs)
 
     def run(self) -> None:
-        st.title("Talk to me!")
+        st.header("Talk to me!")
 
         self.sidebar()
         self.render_chat()

@@ -5,6 +5,7 @@ from typing import Callable
 
 from langchain.chat_models import ChatOpenAI
 from langchain.tools import BaseTool
+from pyparsing import C
 
 from app.config import settings
 from app.integrations.bamboo.employees import add_employee, edit_employee
@@ -60,6 +61,7 @@ class WelcomeEmailTool(BaseTool):
 class HRPolicyEmailTool(BaseTool):
     name = "HR_policy_email_tool"
     description = "useful to send an email with the HR policies to the new employee. The only input is the email address of the recipient."
+    callback: Callable | None = None
 
     def _run(self, recipient_email: str) -> str:
         service = get_google_service(
@@ -75,12 +77,17 @@ class HRPolicyEmailTool(BaseTool):
             body="Please find attached the HR policies of the company",
             attachments=[Path("./assets/HR_policies.pdf").resolve().as_posix()],
         )
+
+        if self.callback:
+            self.callback()
+
         return f"\nAn email with the HR policies has been sent to {recipient_email}\n"
 
 
 class SlackInviteTool(BaseTool):
     name = "slack_invite_tool"
     description = "useful to send a slack invite to a new employee via email. The only input is the email address of the recipient."
+    callback: Callable | None = None
 
     def _run(self, recipient_email: str) -> str:
         service = get_google_service(
@@ -95,6 +102,10 @@ class SlackInviteTool(BaseTool):
             subject="Slack invite",
             body=f"Welcome to the company! \n\n Here is your Slack invitation: \n{settings.SLACK_INVITE_URL}",
         )
+
+        if self.callback:
+            self.callback()
+
         return f"\nAn email with a Slack invite has been sent to {recipient_email}\n"
 
 
@@ -110,6 +121,7 @@ class CreateCalendarEventTool(BaseTool):
     }
     Make sure to confirm the details of the event with the user.
     """
+    callback: Callable | None = None
 
     def _run(self, event: str) -> str:
         try:
@@ -141,7 +153,48 @@ class CreateCalendarEventTool(BaseTool):
             attendees=event_dict["attendees"],
             timezone=event_dict.get("timezone", "UTC"),
         )
+
+        if self.callback:
+            self.callback()
+
         return f"\nA calendar event has been created with id {event_id}\n"
+
+
+class AddEmployeeToHRTool(BaseTool):
+    name = "add_employee_to_hr_tool"
+    description = """useful to add a new employee to the HR system. The input to this tool is a JSON with the following format:
+    {
+        first_name: str,
+        last_name: str,
+        email_address: str,
+    }
+    """
+    callback: Callable | None = None
+
+    def _run(self, employee_str: str) -> str:
+        try:
+            employee_dict = json.loads(employee_str)
+        except json.JSONDecodeError:
+            return "The input is not a valid JSON"
+
+        first_name = employee_dict["first_name"]
+        last_name = employee_dict["last_name"]
+        email_address = employee_dict["email_address"]
+        hire_date = datetime.date.today().strftime("%Y-%m-%d")
+
+        employee_id = add_employee(
+            first_name=first_name,
+            last_name=last_name,
+            email_address=email_address,
+            hire_date=hire_date,
+        )
+        add_time_off_policy(employee_id=employee_id, accrual_start_date=hire_date)
+        add_time_off_balance(employee_id=employee_id)
+
+        if self.callback:
+            self.callback()
+
+        return f"\nEmployee {first_name} {last_name} has been added to the HR system with employee_id {employee_id} (THIS NUMBER IS IMPORTANT!)\n"
 
 
 class HRPolicyQATool(BaseTool):
@@ -166,39 +219,6 @@ class HRPolicyQATool(BaseTool):
         )
 
         return f"\n{result}\n"
-
-
-class AddEmployeeToHRTool(BaseTool):
-    name = "add_employee_to_hr_tool"
-    description = """useful to add a new employee to the HR system. The input to this tool is a JSON with the following format:
-    {
-        first_name: str,
-        last_name: str,
-        email_address: str,
-    }
-    """
-
-    def _run(self, employee_str: str) -> str:
-        try:
-            employee_dict = json.loads(employee_str)
-        except json.JSONDecodeError:
-            return "The input is not a valid JSON"
-
-        first_name = employee_dict["first_name"]
-        last_name = employee_dict["last_name"]
-        email_address = employee_dict["email_address"]
-        hire_date = datetime.date.today().strftime("%Y-%m-%d")
-
-        employee_id = add_employee(
-            first_name=first_name,
-            last_name=last_name,
-            email_address=email_address,
-            hire_date=hire_date,
-        )
-        add_time_off_policy(employee_id=employee_id, accrual_start_date=hire_date)
-        add_time_off_balance(employee_id=employee_id)
-
-        return f"\nEmployee {first_name} {last_name} has been added to the HR system with employee_id {employee_id} (THIS NUMBER IS IMPORTANT!)\n"
 
 
 class ModifyEmployeeTool(BaseTool):
@@ -291,3 +311,22 @@ def get_all_tools() -> list[BaseTool]:
         CancelTimeOffRequestTool(),  # type: ignore
         EstimateTimeOffBalanceTool(),  # type: ignore
     ]
+
+
+# if __name__ == "__main__":
+# Test tools
+# AddEmployeeToHRTool()._run(
+#     employee_str='{"first_name": "test2", "last_name": "McTest2", "email_address": "test2@test.com"}'
+# )
+# ModifyEmployeeTool()._run(
+#     employee_str='{"employee_id": "215", "first_name": "test3", "last_name": "McTest3"}'
+# )
+# MakeTimeOffRequestTool()._run(
+#     time_off_request_str='{"employee_id": "215", "start_date": "2023-10-26", "end_date": "2023-10-27"}'
+# )
+
+# ViewTimeOffRequestsTool()._run(employee_id="215")
+
+# EstimateTimeOffBalanceTool()._run(employee_id="215")
+
+# CancelTimeOffRequestTool()._run(request_id="1650")
