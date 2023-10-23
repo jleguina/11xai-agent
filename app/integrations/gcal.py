@@ -1,41 +1,8 @@
 import datetime
 from typing import Any
 
-from googleapiclient.errors import HttpError
-
 from app.config import settings
 from app.integrations.google_auth import GoogleService, get_google_service
-
-
-def test_gcal(service: Any) -> None:
-    try:
-        # Call the Calendar API
-        now = datetime.datetime.utcnow().isoformat() + "Z"  # 'Z' = UTC time
-        print("Getting the upcoming 10 events")
-        events_result = (
-            service.events()
-            .list(
-                calendarId="primary",
-                timeMin=now,
-                maxResults=10,
-                singleEvents=True,
-                orderBy="startTime",
-            )
-            .execute()
-        )
-        events = events_result.get("items", [])
-
-        if not events:
-            print("No upcoming events found.")
-            return
-
-        # Prints the start and name of the next 10 events
-        for event in events:
-            start = event["start"].get("dateTime", event["start"].get("date"))
-            print(start, event["summary"])
-
-    except HttpError as error:
-        print("An error occurred: %s" % error)
 
 
 def schedule_event(
@@ -46,6 +13,20 @@ def schedule_event(
     attendees: list[str] = [],
     timezone: str = "UTC",
 ) -> str:
+    """
+    Schedule and event in Google Calendar.
+
+    Args:
+        service (Any): Google Calendar API service object
+        summary (str): Title of the event
+        start_time (str): Start time of the event in ISO format
+        end_time (str): End time of the event in ISO format
+        attendees (list[str], optional): list of attendees emails. Defaults to [].
+        timezone (str, optional): timezone. Defaults to "UTC".
+
+    Returns:
+        str: event ID
+    """
     event = {
         "summary": summary,
         "start": {
@@ -77,6 +58,12 @@ def schedule_event(
 
 
 def delete_event(service: Any, event_id: str) -> None:
+    """Deletes a calendar event by ID. Requires to be logged in.
+
+    Args:
+        service (Any): Google Calendar API service object
+        event_id (str): event ID
+    """
     service.events().delete(calendarId="primary", eventId=event_id).execute()
 
 

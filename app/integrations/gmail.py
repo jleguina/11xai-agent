@@ -1,61 +1,35 @@
 import copy
 import os
 import os.path
-import pickle
 import warnings
-
-# for encoding/decoding messages in base64
 from base64 import urlsafe_b64encode
 from email.mime.application import MIMEApplication
 from email.mime.audio import MIMEAudio
 from email.mime.base import MIMEBase
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
-
-# for dealing with attachement MIME types
 from email.mime.text import MIMEText
 from mimetypes import guess_type as guess_mime_type
 from pathlib import Path
 from typing import Any
 
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
-
-# Gmail API utils
-from googleapiclient.discovery import build
-
 from app.config import settings
 from app.integrations.google_auth import GoogleService, get_google_service
-
-
-def gmail_authenticate(
-    client_config: dict[str, dict[str, str | list[str]]],
-    scopes: list[str],
-) -> Any:
-    creds = None
-    # the file token.pickle stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first time
-    if os.path.exists("token.pickle"):
-        with open("token.pickle", "rb") as token:
-            creds = pickle.load(token)
-
-    # if there are no (valid) credentials availablle, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_config(client_config, scopes)
-            creds = flow.run_local_server(port=0)
-        # save the credentials for the next run
-        with open("token.pickle", "wb") as token:
-            pickle.dump(creds, token)
-    return build("gmail", "v1", credentials=creds)
 
 
 # Adds the attachment with the given filename to the given message
 def add_attachment(
     message: MIMEText | MIMEMultipart, filepath: str
 ) -> MIMEText | MIMEMultipart:
+    """Add an attachment to an email message.
+
+    Args:
+        message (MIMEText | MIMEMultipart): MIME message to attach to
+        filepath (str): path to the file to attach
+
+    Returns:
+        MIMEText | MIMEMultipart: MIME message with the attachment
+    """
     content_type, encoding = guess_mime_type(filepath)
     if content_type is None or encoding is not None:
         content_type = "application/octet-stream"
@@ -91,6 +65,20 @@ def build_message(
     body: str,
     attachments: list[str] = [],
 ) -> dict[str, str]:
+    """Build a message to send via Gmail API.
+
+    Args:
+        recipient (str): email address of the recipient
+        subject (str): subject of the email
+        body (str): body of the email
+        attachments (list[str], optional): list of paths to attachment files. Defaults to [].
+
+    Raises:
+        FileNotFoundError: if any of the attachment files does not exist
+
+    Returns:
+        dict[str, str]: message payload to send via Gmail API
+    """
     message: MIMEText | MIMEMultipart
     if not attachments:
         message = MIMEText(body)
@@ -117,6 +105,18 @@ def send_message(
     body: str,
     attachments: list[str] = [],
 ) -> dict[str, str]:
+    """Send an email message via Gmail API.
+
+    Args:
+        service (Any): Gmail API service object
+        recipient (str): email address of the recipient
+        subject (str): subject of the email
+        body (str): body of the email
+        attachments (list[str], optional): list of paths to attachment files. Defaults to [].
+
+    Returns:
+        dict[str, str]: Gmail API response
+    """
     return (
         service.users()
         .messages()
