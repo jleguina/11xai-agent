@@ -1,59 +1,64 @@
-import io
-import re
-import sys
 import time
-from typing import Any
 
 import streamlit as st
 
-from app.agent import init_agent_executor
-from app.tools import get_all_tools
+from app.agent.executor import init_agent_executor
+from app.agent.tools import get_all_tools
+from app.utils import CaptureStdout, no_ansi_string
 
 
-def no_ansi_string(ansi_string: str) -> str:
-    ansi_escape = re.compile(r"\x1b[^m]*m")
-    return ansi_escape.sub("", ansi_string)
-
-
-class CaptureStdout:
-    def __init__(self) -> None:
-        self.new_stdout = io.StringIO()
-        self.old_stdout = sys.stdout
-
-    def __enter__(self) -> "CaptureStdout":
-        sys.stdout = self.new_stdout
-        return self
-
-    def __exit__(self, *args: Any) -> None:
-        self.value = self.new_stdout.getvalue()
-        self.new_stdout.close()
-        sys.stdout = self.old_stdout
-
-    def getvalue(self) -> str:
-        return self.value.strip()
+def init_session_state() -> None:
+    st.session_state.messages = [
+        {
+            "role": "assistant",
+            "content": """
+            Hi, I am Maria, your personal HR assistant. To get started, can you please provide the following information:\n
+                - First Name
+                - Last Name
+                - Email Address
+                """,
+            "log": [],
+        }
+    ]
+    st.session_state.debug_logs = []
+    st.session_state.thinking = False
 
 
 if __name__ == """__main__""":
-    st.title("ChatGPT-like clone")
-
-    #  Add a debug mode to show the logs
-    debug = st.checkbox("Debug mode")
-    st.session_state.debug = debug
+    st.title("Talk to me!")
 
     if "messages" not in st.session_state:
-        st.session_state.messages = [
-            {
-                "role": "assistant",
-                "content": """
-                Hi, I am Maria, your personal HR assistant. To get started, can you please provide the following information:\n
-                    - First Name
-                    - Last Name
-                    - Email Address
-                    """,
-                "log": [],
-            }
-        ]
-        st.session_state.debug_logs = []
+        init_session_state()
+
+    # Sidebar
+    with st.sidebar:
+        st.title("Maria, your personal HR assistant")
+        # Description
+        st.markdown(
+            """
+            This is Maria, your personal HR assistant.
+            She can help you with the following tasks:
+            - Send a welcome email.
+            - Send a copy of the HR policies via email.
+            - Invite to the company Slack via email.
+            - Schedule calendar events.
+            - Answer questions about the company's HR policies.
+            """
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        #  Add a debug mode to show the logs
+        with st.expander("Debug mode"):
+            st.warning(
+                "Toggling debug mode while the agent is thinking will cause issues."
+            )
+            debug = st.checkbox("Debug mode", disabled=st.session_state.thinking)
+            st.session_state.debug = debug
+
+        #  Reset button
+        if st.button("Reset", use_container_width=True):
+            init_session_state()
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -93,9 +98,11 @@ if __name__ == """__main__""":
 
             logs = no_ansi_string(c.getvalue()).split("\n")
             logs = list(filter(None, logs))  # Remove blank lines
-            st.write(logs)
+            if st.session_state.debug:
+                st.write(logs)
 
             message_placeholder.markdown(full_response)
+
         st.session_state.messages.append(
             {"role": "assistant", "content": full_response, "log": logs}
         )
