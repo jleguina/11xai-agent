@@ -2,11 +2,7 @@ import datetime
 from typing import Any
 from urllib.parse import urlencode
 
-from app.integrations.bamboo.utils import (
-    RequestMethods,
-    count_working_days,
-    send_bamboo_request,
-)
+from app.integrations.bamboo.utils import RequestMethods, send_bamboo_request
 
 ##################### TO SET UP USER TIME OFF POLICIES #####################
 

@@ -46,7 +46,7 @@ class MariaApp:
                     1. Send you a welcome email, the HR policies and a Slack invite.
                     2. Schedule a calendar event for your onboarding.
                     3. Enroll you in the HR system.
-                Thanks!        
+                Thanks!
                 """,
                 "log": [],
             }
@@ -138,19 +138,19 @@ class MariaApp:
 
     def init_agent(self) -> AgentExecutor:
         # Status callbacks
-        def set_welcome_email_status():
+        def set_welcome_email_status() -> None:
             st.session_state.welcome_email_sent = True
 
-        def set_policies_email_status():
+        def set_policies_email_status() -> None:
             st.session_state.policies_email_sent = True
 
-        def set_slack_invite_status():
+        def set_slack_invite_status() -> None:
             st.session_state.slack_invite_sent = True
 
-        def set_calendar_event_status():
+        def set_calendar_event_status() -> None:
             st.session_state.calendar_event_created = True
 
-        def set_enrolled_in_HR_system_status():
+        def set_enrolled_in_HR_system_status() -> None:
             st.session_state.enrolled_in_HR_system = True
 
         tools = [
