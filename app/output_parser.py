@@ -6,6 +6,8 @@ from langchain.agents.agent import AgentOutputParser
 from langchain.output_parsers.json import parse_json_markdown
 from langchain.schema import AgentAction, AgentFinish, OutputParserException
 
+from app.tools import RespondTool
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,7 +20,7 @@ class CustomJSONOutputParser(AgentOutputParser):
                 logger.warning("Got multiple tool responses: %s", response)
                 response = response[0]
 
-            if response["tool"] == "final_answer":
+            if response["tool"] == RespondTool().name:  # type: ignore
                 return AgentFinish({"output": response["tool_input"]}, text)
             else:
                 return AgentAction(

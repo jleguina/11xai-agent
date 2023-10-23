@@ -1,60 +1,77 @@
+import io
+import re
+import sys
 import time
-from pathlib import Path
+from typing import Any
 
 import streamlit as st
-from langchain.agents import AgentExecutor, Tool, ZeroShotAgent
-from langchain.chains import LLMChain
-from langchain.chat_models import ChatOpenAI
-from langchain.prompts import load_prompt
 
-from app.config import settings
-from app.output_parser import CustomJSONOutputParser
+from app.agent import init_agent_executor
+from app.tools import get_all_tools
 
 
-def init_agent_executor() -> AgentExecutor:
-    tools = [
-        Tool(
-            name="final_answer",
-            func=lambda: "1",
-            description="used to give the final answer to the human. The input to this tool is a string with the answer",
-        ),
-    ]
+def no_ansi_string(ansi_string: str) -> str:
+    ansi_escape = re.compile(r"\x1b[^m]*m")
+    return ansi_escape.sub("", ansi_string)
 
-    prompt = load_prompt(Path("./app/prompts/master.yaml").resolve())
-    tool_strings = "\n".join([f"{tool.name}: {tool.description}" for tool in tools])
-    tool_names = ", ".join([tool.name for tool in tools])
-    prompt = prompt.partial(tool_names=tool_names, tool_strings=tool_strings)
 
-    llm = ChatOpenAI(temperature=0, model=settings.OPENAI_MODEL)
-    llm_chain = LLMChain(llm=llm, prompt=prompt)
+class CaptureStdout:
+    def __init__(self) -> None:
+        self.new_stdout = io.StringIO()
+        self.old_stdout = sys.stdout
 
-    agent = ZeroShotAgent(
-        llm_chain=llm_chain,
-        allowed_tools=[tool.name for tool in tools],
-        output_parser=CustomJSONOutputParser(),
-    )
+    def __enter__(self) -> "CaptureStdout":
+        sys.stdout = self.new_stdout
+        return self
 
-    agent_executor = AgentExecutor.from_agent_and_tools(agent=agent, tools=tools)
+    def __exit__(self, *args: Any) -> None:
+        self.value = self.new_stdout.getvalue()
+        self.new_stdout.close()
+        sys.stdout = self.old_stdout
 
-    return agent_executor
+    def getvalue(self) -> str:
+        return self.value.strip()
 
 
 if __name__ == """__main__""":
     st.title("ChatGPT-like clone")
 
+    #  Add a debug mode to show the logs
+    debug = st.checkbox("Debug mode")
+    st.session_state.debug = debug
+
     if "messages" not in st.session_state:
-        st.session_state.messages = []
+        st.session_state.messages = [
+            {
+                "role": "assistant",
+                "content": """
+                Hi, I am Maria, your personal HR assistant. To get started, can you please provide the following information:
+                    - First Name
+                    - Last Name
+                    - Email Address
+                    - Bank Account Number
+                    - Bank Sort Code
+                    """,
+                "log": [],
+            }
+        ]
+        st.session_state.debug_logs = []
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if message["log"] and debug:
+                st.write(message["log"])
 
     if user_input := st.chat_input("What's up?"):
-        st.session_state.messages.append({"role": "user", "content": user_input})
+        st.session_state.messages.append(
+            {"role": "user", "content": user_input, "log": ""}
+        )
         with st.chat_message("user"):
             st.markdown(user_input)
 
-        agent_executor = init_agent_executor()
+        tools = get_all_tools()
+        agent_executor = init_agent_executor(tools, verbose=True)
 
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
@@ -62,19 +79,25 @@ if __name__ == """__main__""":
 
             with st.spinner("Thinking..."):
                 # TODO - manage conversation history length
-                llm_output = agent_executor.invoke(
-                    {
-                        "input": user_input,
-                        "chat_history": st.session_state.messages[:-1],
-                    }
-                )["output"]
+                # Capture the stdout
+                with CaptureStdout() as c:
+                    llm_output = agent_executor.invoke(
+                        {
+                            "input": user_input,
+                            "chat_history": st.session_state.messages[:-1],
+                        }
+                    )["output"]
 
             for response in llm_output:
                 full_response += response
                 message_placeholder.markdown(full_response + "▌")
                 time.sleep(0.02)
 
+            logs = no_ansi_string(c.getvalue()).split("\n")
+            logs = list(filter(None, logs))  # Remove blank lines
+            st.write(logs)
+
             message_placeholder.markdown(full_response)
         st.session_state.messages.append(
-            {"role": "assistant", "content": full_response}
+            {"role": "assistant", "content": full_response, "log": logs}
         )
