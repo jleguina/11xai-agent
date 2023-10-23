@@ -1,4 +1,3 @@
-import datetime
 from typing import Any
 from urllib.parse import urlencode
 
@@ -7,8 +6,27 @@ from app.integrations.bamboo.utils import RequestMethods, send_bamboo_request
 
 def get_employee(
     employee_id: str,
-    fields: list[str] = ["firstName", "lastName", "homeEmail", "location", "hireDate"],
+    fields: list[str] = [
+        "firstName",
+        "lastName",
+        "homeEmail",
+        "location",
+        "hireDate",
+    ],
 ) -> dict[str, Any]:
+    """
+    Gets an employee from Bamboo HR
+
+    Args:
+        employee_id (str)
+        fields (list[str], optional): Fields to be retrieved from the employee profile. Defaults to [ "firstName", "lastName", "homeEmail", "location", "hireDate", ].
+
+    Raises:
+        Exception: Error getting employee
+
+    Returns:
+        dict[str, Any]: Employee profile JSON object with requested fields
+    """
     fields_str = ",".join(fields)
     encoded_fields = urlencode({"fields": fields_str})
 
@@ -23,8 +41,24 @@ def get_employee(
     return res.json()
 
 
-def add_employee(first_name: str, last_name: str, email_address: str) -> str:
-    today = datetime.date.today().strftime("%Y-%m-%d")
+def add_employee(
+    first_name: str, last_name: str, email_address: str, hire_date: str
+) -> str:
+    """
+    Adds an employee to Bamboo HR
+
+    Args:
+        first_name (str)
+        last_name (str)
+        email_address (str)
+        hire_date (str): Format YYYY-MM-DD
+
+    Raises:
+        Exception: Error creating employee
+
+    Returns:
+        str: Employee ID
+    """
     res = send_bamboo_request(
         url_path="/employees",
         method=RequestMethods.POST,
@@ -32,9 +66,8 @@ def add_employee(first_name: str, last_name: str, email_address: str) -> str:
             "firstName": first_name,
             "lastName": last_name,
             "homeEmail": email_address,
-            "Vacation - Available Balance": 25,
             "location": "London, UK",
-            "hireDate": today,
+            "hireDate": hire_date,
         },
     )
     if res.status_code != 201:
@@ -44,11 +77,40 @@ def add_employee(first_name: str, last_name: str, email_address: str) -> str:
     return employee_id
 
 
-def edit_employee(employee_id: str, **kwargs: dict) -> None:
+def edit_employee(
+    employee_id: str,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    email_address: str | None = None,
+) -> None:
+    """
+    Edits an employee in Bamboo HR
+
+    Args:
+        employee_id (str):
+        first_name (str | None, optional): Defaults to None.
+        last_name (str | None, optional): Defaults to None.
+        email_address (str | None, optional): Defaults to None.
+
+    Raises:
+        Exception: At least one field must be provide
+        Exception: Error editing employee
+    """
+    if not any([first_name, last_name, email_address]):
+        raise Exception("At least one field must be provided")
+
+    data = {}
+    if first_name:
+        data["firstName"] = first_name
+    if last_name:
+        data["lastName"] = last_name
+    if email_address:
+        data["homeEmail"] = email_address
+
     res = send_bamboo_request(
         url_path=f"/employees/{employee_id}/",
         method=RequestMethods.POST,
-        data=kwargs,
+        data=data,
     )
 
     if res.status_code != 200:

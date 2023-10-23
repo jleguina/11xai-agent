@@ -1,16 +1,20 @@
 import datetime
 import json
-import pickle
 from pathlib import Path
 
 from langchain.chat_models import ChatOpenAI
-from langchain.document_loaders import PyPDFLoader
-from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.tools import BaseTool
-from langchain.vectorstores import FAISS
 
 from app.config import settings
+from app.integrations.bamboo.employees import add_employee, edit_employee
+from app.integrations.bamboo.time_off import (
+    add_time_off_balance,
+    add_time_off_policy,
+    add_time_off_request,
+    cancel_time_off_request,
+    get_time_off_balance_estimate,
+    get_time_off_requests,
+)
 from app.integrations.faiss import build_index
 from app.integrations.gcal import schedule_event
 from app.integrations.gmail import send_message
@@ -158,44 +162,112 @@ class HRPolicyQATool(BaseTool):
         return f"\n{result}\n"
 
 
-if __name__ == "__main__":
-    pdf_path_str = "./assets/HR_policies.pdf"
-    pdf_path = Path(pdf_path_str).resolve()
-    if not pdf_path.exists():
-        raise FileNotFoundError(f"File {pdf_path} does not exist")
+class AddEmployeeToHRTool(BaseTool):
+    name = "add_employee_to_hr_tool"
+    description = """useful to add a new employee to the HR system. The input to this tool is a JSON with the following format:
+    {
+        first_name: str,
+        last_name: str,
+        email_address: str,
+    }
+    """
 
-    pickle_filepath = Path(pdf_path_str.replace(".pdf", ".pickle")).resolve()
-    if pickle_filepath.exists():
-        with open(pickle_filepath, "rb") as handle_rb:
-            faiss_index = pickle.load(handle_rb)
-    else:
-        loader = PyPDFLoader(pdf_path.as_posix())
+    def _run(self, employee_str: str) -> str:
+        try:
+            employee_dict = json.loads(employee_str)
+        except json.JSONDecodeError:
+            return "The input is not a valid JSON"
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=250, chunk_overlap=50)
-        all_splits = text_splitter.split_documents(loader.load())
+        first_name = employee_dict["first_name"]
+        last_name = employee_dict["last_name"]
+        email_address = employee_dict["email_address"]
+        hire_date = datetime.date.today().strftime("%Y-%m-%d")
 
-        faiss_index = FAISS.from_documents(all_splits, OpenAIEmbeddings())
-        with open(pickle_filepath, "wb") as handle_wb:
-            pickle.dump(faiss_index, handle_wb, protocol=pickle.HIGHEST_PROTOCOL)
+        employee_id = add_employee(
+            first_name=first_name,
+            last_name=last_name,
+            email_address=email_address,
+            hire_date=hire_date,
+        )
+        add_time_off_policy(employee_id=employee_id, accrual_start_date=hire_date)
+        add_time_off_balance(employee_id=employee_id)
 
-    query = "what is the holiday policy?"
-    docs = faiss_index.similarity_search(query, k=5)
+        return f"\nEmployee {first_name} {last_name} has been added to the HR system with employee_id {employee_id} (THIS NUMBER IS IMPORTANT!)\n"
 
-    llm = ChatOpenAI(temperature=0.1, model=settings.OPENAI_MODEL)
 
-    clean_docs = [doc.page_content for doc in docs]
-    result = llm.predict(
-        f"""You are a helpful question-answering assistant. You are asked the following question:\n\n
-        "{query}"\n
+class ModifyEmployeeTool(BaseTool):
+    name = "modify_employee_tool"
+    description = """useful to modify an employee in the HR system. The input to this tool is a JSON with the following format:
+    {
+        employee_id: str,
+        first_name: Optional[str],
+        last_name: Optional[str],
+        email_address: Optional[str],
+    }
+    """
 
-        You have to answer the question. You can use the following information:\n\n
-        {clean_docs}\n
+    def _run(self, employee_str: str) -> str:
+        try:
+            employee_dict = json.loads(employee_str)
+        except json.JSONDecodeError:
+            return "The input is not a valid JSON"
 
-        Be concise. Answer:"
-        """
-    )
+        edit_employee(**employee_dict)
 
-    print(result)
+        return f"\nEmployee {employee_dict['employee_id']} has been modified successfully\n"
+
+
+class ViewTimeOffRequestsTool(BaseTool):
+    name = "view_time_off_requests_tool"
+    description = """useful to view all time off requests for an employee. The input to this tool is the employee_id of the employee to view."""
+
+    def _run(self, employee_id: str) -> str:
+        return f"\nTime off requests for employee {employee_id}:\n{get_time_off_requests(employee_id)}\n"
+
+
+class MakeTimeOffRequestTool(BaseTool):
+    name = "make_time_off_request_tool"
+    description = """useful to make a time off request. The input to this tool is a JSON with the following format:
+    {
+        employee_id: str,
+        start_date: str,  # Format YYYY-MM-DD
+        end_date: str,  # Format YYYY-MM-DD
+    }
+    """
+
+    def _run(self, time_off_request_str: str) -> str:
+        try:
+            time_off_request_dict = json.loads(time_off_request_str)
+        except json.JSONDecodeError:
+            return "The input is not a valid JSON"
+        request_id = add_time_off_request(**time_off_request_dict)
+
+        return f"\nTime off request with id {request_id} for employee {time_off_request_dict['employee_id']} has been made successfully\n"
+
+
+class CancelTimeOffRequestTool(BaseTool):
+    name = "cancel_time_off_request_tool"
+    description = """useful to cancel a time off request. The input to this tool is the request_id of the request to cancel."""
+
+    def _run(self, request_id: str) -> str:
+        cancel_time_off_request(request_id=request_id)
+        return (
+            f"\nTime off request with id {request_id} has been cancelled successfully\n"
+        )
+
+
+class EstimateTimeOffBalanceTool(BaseTool):
+    name = "estimate_time_off_balance_tool"
+    description = "useful to estimate the time off balance for an employee. The input to this tool is the employee_id of the employee to view."
+
+    def _run(self, employee_id: str) -> str:
+        end_date = (datetime.date.today() + datetime.timedelta(days=365)).strftime(
+            "%Y-%m-%d"
+        )
+        future_balance = get_time_off_balance_estimate(
+            employee_id=employee_id, end_date=end_date
+        )
+        return f"\nTime off balance for employee {employee_id}:\n{future_balance}\n"
 
 
 def get_all_tools() -> list[BaseTool]:
@@ -206,4 +278,10 @@ def get_all_tools() -> list[BaseTool]:
         SlackInviteTool(),  # type: ignore
         CreateCalendarEventTool(),  # type: ignore
         HRPolicyQATool(),  # type: ignore
+        AddEmployeeToHRTool(),  # type: ignore
+        ModifyEmployeeTool(),  # type: ignore
+        ViewTimeOffRequestsTool(),  # type: ignore
+        MakeTimeOffRequestTool(),  # type: ignore
+        CancelTimeOffRequestTool(),  # type: ignore
+        EstimateTimeOffBalanceTool(),  # type: ignore
     ]

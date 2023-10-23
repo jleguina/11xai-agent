@@ -12,6 +12,7 @@ from app.config import settings
 class RequestMethods:
     GET: str = "GET"
     POST: str = "POST"
+    PUT: str = "PUT"
 
 
 def send_bamboo_request(url_path: str, method: str, data: Any = None) -> Any:
