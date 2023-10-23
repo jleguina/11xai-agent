@@ -44,7 +44,14 @@ if __name__ == """__main__""":
         st.session_state.messages = [
             {
                 "role": "assistant",
-                "content": "Hi, I am Maria, your personal HR assistant. To get started, can you please tell me your name and email address? Thanks!",
+                "content": """
+                Hi, I am Maria, your personal HR assistant. To get started, can you please provide the following information:
+                    - First Name
+                    - Last Name
+                    - Email Address
+                    - Bank Account Number
+                    - Bank Sort Code
+                    """,
                 "log": [],
             }
         ]
