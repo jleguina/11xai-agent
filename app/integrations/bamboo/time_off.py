@@ -2,11 +2,7 @@ import datetime
 from typing import Any
 from urllib.parse import urlencode
 
-from app.integrations.bamboo.utils import (
-    RequestMethods,
-    count_working_days,
-    send_bamboo_request,
-)
+from app.integrations.bamboo.utils import RequestMethods, send_bamboo_request
 
 ##################### TO SET UP USER TIME OFF POLICIES #####################
 
@@ -35,7 +31,7 @@ def add_time_off_policy(employee_id: str, accrual_start_date: str) -> None:
         data=data,
     )
 
-    if res.status_code != 201:
+    if res.status_code != 200:
         raise Exception("Error adding time off policy")
 
 
@@ -103,20 +99,25 @@ def add_time_off_request(employee_id: str, start_date: str, end_date: str) -> st
     Returns:
         str: Request ID
     """
+    time_diff = datetime.datetime.strptime(
+        end_date, "%Y-%m-%d"
+    ) - datetime.datetime.strptime(start_date, "%Y-%m-%d")
     data = {
         "status": "requested",  # Options: "approved", "denied" (or "declined"), "requested"
         "start": start_date,
         "end": end_date,
-        "amount": count_working_days(start_date, end_date)
-        * 8,  # 8h per working day (units are given in hours)
-        "timeOffTypeId": "78",  # Indicates vacation, see: https://documentation.bamboohr.com/reference/get-time-off-types
+        "amount": 8 * time_diff.days,  # 8h per working day (units are given in hours)
+        "timeOffTypeId": 78,  # Indicates vacation, see: https://documentation.bamboohr.com/reference/get-time-off-types
     }
 
     res = send_bamboo_request(
         url_path=f"/employees/{employee_id}/time_off/request",
-        method=RequestMethods.POST,
+        method=RequestMethods.PUT,
         data=data,
     )
+
+    if res.status_code != 201:
+        raise Exception("Error creating time off request")
 
     request_id = res.headers["Location"].split("/")[-1]
     return request_id
@@ -132,10 +133,10 @@ def cancel_time_off_request(request_id: str) -> None:
     Raises:
         Exception: Error cancelling time off request
     """
-    url_path = f"time_off/requests/{request_id}/status"
+    url_path = f"/time_off/requests/{request_id}/status"
     res = send_bamboo_request(
         url_path=url_path,
-        method=RequestMethods.POST,
+        method=RequestMethods.PUT,
         data={"status": "canceled"},
     )
 
