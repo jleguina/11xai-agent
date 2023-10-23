@@ -76,6 +76,12 @@ class MariaApp:
 
     def handle_chat_input(self) -> None:
         if user_input := st.chat_input("What's up?"):
+            # Count the number of words in the user input
+            num_words = len(user_input.split())
+            if num_words > 1000:
+                st.error("Please keep your message under 1000 words.")
+                return
+
             self.store_message(RoleType.USER, user_input)
 
             with st.chat_message(RoleType.USER):
