@@ -45,12 +45,10 @@ if __name__ == """__main__""":
             {
                 "role": "assistant",
                 "content": """
-                Hi, I am Maria, your personal HR assistant. To get started, can you please provide the following information:
+                Hi, I am Maria, your personal HR assistant. To get started, can you please provide the following information:\n
                     - First Name
                     - Last Name
                     - Email Address
-                    - Bank Account Number
-                    - Bank Sort Code
                     """,
                 "log": [],
             }
