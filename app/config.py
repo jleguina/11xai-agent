@@ -10,7 +10,7 @@ load_dotenv()
 @dataclass
 class _Settings:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    OPENAI_MODEL: str = "gpt-4"
+    OPENAI_MODEL: str = "gpt-3.5-turbo"
     DEBUG: bool = False
 
     # Bamboo HR API
